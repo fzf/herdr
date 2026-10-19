@@ -522,6 +522,71 @@ fn keyboard_copy_mode_owns_cursor_selection_copy_and_scroll_restore() {
 }
 
 #[test]
+fn keyboard_copy_mode_uses_configured_movement_keys() {
+    let config: Config = toml::from_str(
+        r#"
+[keys]
+copy_mode_left = "d"
+copy_mode_down = "h"
+copy_mode_up = "t"
+copy_mode_right = "n"
+"#,
+    )
+    .unwrap();
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&config));
+    state.config.copy_on_select = false;
+    state.set_snapshot(Box::new(snapshot()));
+    let mut pane_surface = surface();
+    pane_surface.panes[0].scroll = Some(crate::protocol::PaneSurfaceScrollMetrics {
+        offset_from_bottom: 0,
+        max_offset_from_bottom: 20,
+        viewport_rows: 2,
+    });
+    state.set_pane_surface(pane_surface);
+    state.compose(106, 20).expect("composed frame");
+
+    let mut enter = ClientShellInput::default();
+    state.record_binding(
+        crate::input::KeybindMatch::Action(crate::input::KeybindAction::CopyMode),
+        &mut enter,
+    );
+    assert_eq!(state.mode, ClientShellMode::Copy);
+    let cursor = |state: &ClientShellState| {
+        state
+            .copy_mode
+            .as_ref()
+            .map(|mode| (mode.cursor.row, mode.cursor.col))
+            .expect("copy mode active")
+    };
+    let (start_row, start_col) = cursor(&state);
+    let press = |state: &mut ClientShellState, ch: char| {
+        state.handle_raw_events(vec![RawInputEvent::Key(crate::input::TerminalKey::new(
+            KeyCode::Char(ch),
+            KeyModifiers::empty(),
+        ))])
+    };
+
+    // Configured Dvorak keys move the cursor.
+    let moved = press(&mut state, 'n');
+    assert!(moved.repaint);
+    assert_eq!(cursor(&state), (start_row, start_col + 1));
+    press(&mut state, 'd');
+    assert_eq!(cursor(&state), (start_row, start_col));
+    press(&mut state, 't');
+    assert_eq!(cursor(&state), (start_row - 1, start_col));
+    press(&mut state, 'h');
+    assert_eq!(cursor(&state), (start_row, start_col));
+
+    // The replaced defaults no longer move: `l` is unbound, `h` now means down,
+    // and `n` no longer repeats a search.
+    press(&mut state, 'l');
+    assert_eq!(cursor(&state), (start_row, start_col));
+    press(&mut state, 'k');
+    assert_eq!(cursor(&state), (start_row, start_col));
+    assert_eq!(state.mode, ClientShellMode::Copy);
+}
+
+#[test]
 fn keyboard_selections_survive_output_and_copy_live_ranges() {
     // Character and linewise selections have distinct anchor/range projections.
     for selection_key in [b"v", b"V"] {
