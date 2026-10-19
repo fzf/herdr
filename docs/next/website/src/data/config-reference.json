@@ -584,6 +584,30 @@
           "description": "Focus the pane to the right in navigate mode. Right arrow is always an alias."
         },
         {
+          "key": "keys.copy_mode_left",
+          "type": "keybinding",
+          "default": "\"h\"",
+          "description": "Move the copy-mode cursor left. Left arrow is always an alias."
+        },
+        {
+          "key": "keys.copy_mode_down",
+          "type": "keybinding",
+          "default": "\"j\"",
+          "description": "Move the copy-mode cursor down. Down arrow is always an alias."
+        },
+        {
+          "key": "keys.copy_mode_up",
+          "type": "keybinding",
+          "default": "\"k\"",
+          "description": "Move the copy-mode cursor up. Up arrow is always an alias."
+        },
+        {
+          "key": "keys.copy_mode_right",
+          "type": "keybinding",
+          "default": "\"l\"",
+          "description": "Move the copy-mode cursor right. Right arrow is always an alias."
+        },
+        {
           "key": "keys.detach",
           "type": "keybinding",
           "default": "\"prefix+q\"",

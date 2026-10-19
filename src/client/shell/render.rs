@@ -74,6 +74,9 @@ pub(super) fn render_mode_bar(
             .prefix_rhs_label()
             .unwrap_or_else(|| "unset".to_owned())
     };
+    let copy_motion_label = |bindings: &crate::config::ActionKeybinds| {
+        bindings.label().unwrap_or_else(|| "unset".to_owned())
+    };
 
     let mut segments = Vec::<(String, Style)>::new();
     if let Some(error) = endpoint_error {
@@ -178,7 +181,16 @@ pub(super) fn render_mode_bar(
                     segments.extend([
                         (" COPY ".to_owned(), mode_style),
                         (" ".to_owned(), base),
-                        ("h/j/k/l w/b/e { }".to_owned(), key),
+                        (
+                            format!(
+                                "{}/{}/{}/{} w/b/e {{ }}",
+                                copy_motion_label(&keybinds.keybinds.copy.left),
+                                copy_motion_label(&keybinds.keybinds.copy.down),
+                                copy_motion_label(&keybinds.keybinds.copy.up),
+                                copy_motion_label(&keybinds.keybinds.copy.right),
+                            ),
+                            key,
+                        ),
                         (" move  ".to_owned(), base),
                         ("/ ?".to_owned(), key),
                         (" search  ".to_owned(), base),

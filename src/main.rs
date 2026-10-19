@@ -202,6 +202,13 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # navigate_pane_up = "k"
 # navigate_pane_right = "l"     # right arrow always focuses the pane to the right
 
+# Copy-mode cursor movement. Arrow keys always work too. A configured key replaces the
+# built-in copy-mode command on that key. Do not include prefix+, esc, or enter here.
+# copy_mode_left = "h"
+# copy_mode_down = "j"
+# copy_mode_up = "k"
+# copy_mode_right = "l"
+
 # Custom commands use the same binding syntax.
 # type = "shell" runs detached in the background.
 # type = "pane" opens a temporary pane and closes it when the command exits.

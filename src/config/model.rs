@@ -369,6 +369,14 @@ pub struct KeysConfig {
     pub navigate_pane_up: BindingConfig,
     /// Focus the pane to the right in navigate mode. Default: "l". Right arrow is always an alias.
     pub navigate_pane_right: BindingConfig,
+    /// Move the copy-mode cursor left. Default: "h". Left arrow is always an alias.
+    pub copy_mode_left: BindingConfig,
+    /// Move the copy-mode cursor down. Default: "j". Down arrow is always an alias.
+    pub copy_mode_down: BindingConfig,
+    /// Move the copy-mode cursor up. Default: "k". Up arrow is always an alias.
+    pub copy_mode_up: BindingConfig,
+    /// Move the copy-mode cursor right. Default: "l". Right arrow is always an alias.
+    pub copy_mode_right: BindingConfig,
     /// Detach the current client from its Herdr server. Default: "prefix+q".
     pub detach: BindingConfig,
     /// Reload config.toml in the running app/server. Default: "prefix+shift+r".
@@ -506,6 +514,14 @@ pub(crate) struct KeysConfigOverlay {
     navigate_pane_up: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     navigate_pane_right: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    copy_mode_left: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    copy_mode_down: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    copy_mode_up: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    copy_mode_right: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     detach: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -660,6 +676,10 @@ impl<'de> Deserialize<'de> for KeysConfig {
         apply_field!(navigate_pane_down);
         apply_field!(navigate_pane_up);
         apply_field!(navigate_pane_right);
+        apply_field!(copy_mode_left);
+        apply_field!(copy_mode_down);
+        apply_field!(copy_mode_up);
+        apply_field!(copy_mode_right);
         apply_field!(detach);
         apply_field!(reload_config);
         apply_field!(open_notification_target);
@@ -765,6 +785,10 @@ impl KeysConfig {
         copy_effective_action_field!(navigate_pane_down, keybinds.navigate.pane_down);
         copy_effective_action_field!(navigate_pane_up, keybinds.navigate.pane_up);
         copy_effective_action_field!(navigate_pane_right, keybinds.navigate.pane_right);
+        copy_effective_action_field!(copy_mode_left, keybinds.copy.left);
+        copy_effective_action_field!(copy_mode_down, keybinds.copy.down);
+        copy_effective_action_field!(copy_mode_up, keybinds.copy.up);
+        copy_effective_action_field!(copy_mode_right, keybinds.copy.right);
         copy_effective_action_field!(detach, keybinds.detach);
         copy_effective_action_field!(reload_config, keybinds.reload_config);
         copy_effective_action_field!(open_notification_target, keybinds.open_notification_target);
@@ -1137,6 +1161,10 @@ impl Default for KeysConfig {
             navigate_pane_down: BindingConfig::one("j"),
             navigate_pane_up: BindingConfig::one("k"),
             navigate_pane_right: BindingConfig::one("l"),
+            copy_mode_left: BindingConfig::one("h"),
+            copy_mode_down: BindingConfig::one("j"),
+            copy_mode_up: BindingConfig::one("k"),
+            copy_mode_right: BindingConfig::one("l"),
             detach: BindingConfig::one("prefix+q"),
             reload_config: BindingConfig::one("prefix+shift+r"),
             open_notification_target: BindingConfig::one("prefix+o"),

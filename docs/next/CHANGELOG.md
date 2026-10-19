@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- Copy-mode cursor movement keys are configurable with `keys.copy_mode_left`, `copy_mode_down`, `copy_mode_up`, and `copy_mode_right`, so Dvorak and Colemak layouts can keep their home row. Arrow keys still move the cursor, and the copy-mode bar shows the configured keys.
+
 ## [0.9.5] - 2026-10-14
 
 This is a hotfix release for v0.9.4. See the v0.9.4 notes for the full feature release: https://github.com/herdrdev/herdr/releases/tag/v0.9.4
