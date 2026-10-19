@@ -347,10 +347,20 @@ pub struct NavigateKeybinds {
     pub pane_right: ActionKeybinds,
 }
 
+/// Parsed copy-mode cursor movement keybinds.
+#[derive(Debug, Clone)]
+pub struct CopyModeKeybinds {
+    pub left: ActionKeybinds,
+    pub down: ActionKeybinds,
+    pub up: ActionKeybinds,
+    pub right: ActionKeybinds,
+}
+
 /// Parsed keybinds for Herdr actions.
 #[derive(Debug, Clone)]
 pub struct Keybinds {
     pub navigate: NavigateKeybinds,
+    pub copy: CopyModeKeybinds,
     pub help: ActionKeybinds,
     pub settings: ActionKeybinds,
     pub new_workspace: ActionKeybinds,
@@ -517,6 +527,9 @@ impl Config {
         let mut navigate_registry = BindingRegistry::new(prefix_keys.clone(), prefix_source);
         navigate_registry.reserve_prefix_keys("keys.prefix", prefix_source);
         reserve_navigate_runtime_keys(&mut navigate_registry);
+        let mut copy_registry = BindingRegistry::new(prefix_keys.clone(), prefix_source);
+        copy_registry.reserve_prefix_keys("keys.prefix", prefix_source);
+        reserve_copy_mode_runtime_keys(&mut copy_registry);
         let prefix = prefix_keys;
 
         macro_rules! empty_action {
@@ -533,6 +546,12 @@ impl Config {
                 pane_down: empty_action!(),
                 pane_up: empty_action!(),
                 pane_right: empty_action!(),
+            },
+            copy: CopyModeKeybinds {
+                left: empty_action!(),
+                down: empty_action!(),
+                up: empty_action!(),
+                right: empty_action!(),
             },
             help: empty_action!(),
             settings: empty_action!(),
@@ -637,10 +656,25 @@ impl Config {
         macro_rules! apply_navigate {
             ($target:expr, $field:ident, $source:expr) => {
                 if field_source!($field) == $source {
-                    $target = parse_navigate_bindings(
+                    $target = parse_local_mode_bindings(
+                        "navigate",
                         concat!("keys.", stringify!($field)),
                         &self.keys.$field,
                         &mut navigate_registry,
+                        &mut diagnostics,
+                        $source,
+                    );
+                }
+            };
+        }
+        macro_rules! apply_copy_mode {
+            ($target:expr, $field:ident, $source:expr) => {
+                if field_source!($field) == $source {
+                    $target = parse_local_mode_bindings(
+                        "copy mode",
+                        concat!("keys.", stringify!($field)),
+                        &self.keys.$field,
+                        &mut copy_registry,
                         &mut diagnostics,
                         $source,
                     );
@@ -663,6 +697,10 @@ impl Config {
             apply_navigate!(keybinds.navigate.pane_down, navigate_pane_down, source);
             apply_navigate!(keybinds.navigate.pane_up, navigate_pane_up, source);
             apply_navigate!(keybinds.navigate.pane_right, navigate_pane_right, source);
+            apply_copy_mode!(keybinds.copy.left, copy_mode_left, source);
+            apply_copy_mode!(keybinds.copy.down, copy_mode_down, source);
+            apply_copy_mode!(keybinds.copy.up, copy_mode_up, source);
+            apply_copy_mode!(keybinds.copy.right, copy_mode_right, source);
             apply_action!(keybinds.help, help, source);
             apply_action!(keybinds.settings, settings, source);
             apply_action!(keybinds.new_workspace, new_workspace, source);
@@ -893,7 +931,18 @@ fn parse_action_bindings(
     ActionKeybinds { bindings }
 }
 
-fn parse_navigate_bindings(
+/// Copy mode keeps esc and enter for exit/copy, so movement keys can never take them.
+fn reserve_copy_mode_runtime_keys(registry: &mut BindingRegistry) {
+    for combo in [
+        (KeyCode::Esc, KeyModifiers::empty()),
+        (KeyCode::Enter, KeyModifiers::empty()),
+    ] {
+        registry.reserve_direct(combo, "copy mode reserved keys", BindingSource::Default);
+    }
+}
+
+fn parse_local_mode_bindings(
+    mode: &'static str,
     field: &'static str,
     config: &BindingConfig,
     registry: &mut BindingRegistry,
@@ -908,7 +957,7 @@ fn parse_navigate_bindings(
         }
         match parse_binding_string(raw) {
             Some(ParsedBinding::Single(binding)) => {
-                if reject_navigate_binding(field, &binding, registry, diagnostics, source) {
+                if reject_local_mode_binding(mode, field, &binding, registry, diagnostics, source) {
                     continue;
                 }
                 registry.register(&binding, field, source);
@@ -1035,7 +1084,8 @@ fn append_legacy_indexed_bindings(
     }
 }
 
-fn reject_navigate_binding(
+fn reject_local_mode_binding(
+    mode: &str,
     field: &str,
     binding: &ResolvedBinding,
     registry: &BindingRegistry,
@@ -1044,7 +1094,7 @@ fn reject_navigate_binding(
 ) -> bool {
     if binding.trigger.is_prefix() {
         let diag = format!(
-            "navigate keybinding must not include prefix: {field} = {:?}; disabling binding",
+            "{mode} keybinding must not include prefix: {field} = {:?}; disabling binding",
             binding.label
         );
         warn!(message = %diag, "config diagnostic");
@@ -1054,7 +1104,7 @@ fn reject_navigate_binding(
 
     if matches!(normalize_key_combo(binding.trigger.combo()).0, KeyCode::Esc) {
         let diag = format!(
-            "navigate keybinding cannot use esc: {field} = {:?}; disabling binding",
+            "{mode} keybinding cannot use esc: {field} = {:?}; disabling binding",
             binding.label
         );
         warn!(message = %diag, "config diagnostic");
@@ -2111,6 +2161,91 @@ navigate_pane_down = "ctrl+j"
         assert!(diagnostics.iter().any(|diag| {
             diag.contains("kept keys.navigate_workspace_up")
                 && diag.contains("disabled keys.navigate_workspace_down")
+        }));
+    }
+
+    #[test]
+    fn copy_mode_bindings_accept_plain_keys_and_user_keys_replace_defaults() {
+        let config: Config = toml::from_str(
+            r#"
+[keys]
+copy_mode_left = "d"
+copy_mode_down = "h"
+copy_mode_up = "t"
+copy_mode_right = "n"
+"#,
+        )
+        .unwrap();
+        let keybinds = config.keybinds();
+        let diagnostics = config.collect_diagnostics();
+
+        let plain = |ch| TerminalKey::new(KeyCode::Char(ch), KeyModifiers::empty());
+        assert!(keybinds.copy.left.matches_direct_key(&plain('d')));
+        assert!(keybinds.copy.down.matches_direct_key(&plain('h')));
+        assert!(keybinds.copy.up.matches_direct_key(&plain('t')));
+        assert!(keybinds.copy.right.matches_direct_key(&plain('n')));
+        // The default `h` for left yields to the user's `h` for down without a diagnostic.
+        assert!(!keybinds.copy.left.matches_direct_key(&plain('h')));
+        assert!(!keybinds.copy.right.matches_direct_key(&plain('l')));
+        assert!(!diagnostics.iter().any(|diag| diag.contains("copy_mode")));
+    }
+
+    #[test]
+    fn copy_mode_bindings_default_to_hjkl_and_stay_separate_from_navigate() {
+        let config: Config = toml::from_str(
+            r#"
+[keys]
+navigate_pane_left = "d"
+"#,
+        )
+        .unwrap();
+        let keybinds = config.keybinds();
+        let plain = |ch| TerminalKey::new(KeyCode::Char(ch), KeyModifiers::empty());
+        assert!(keybinds.copy.left.matches_direct_key(&plain('h')));
+        assert!(keybinds.copy.down.matches_direct_key(&plain('j')));
+        assert!(keybinds.copy.up.matches_direct_key(&plain('k')));
+        assert!(keybinds.copy.right.matches_direct_key(&plain('l')));
+        assert!(keybinds.navigate.pane_left.matches_direct_key(&plain('d')));
+        assert!(!keybinds.copy.left.matches_direct_key(&plain('d')));
+    }
+
+    #[test]
+    fn copy_mode_bindings_reject_prefix_esc_enter_and_local_conflicts() {
+        let config: Config = toml::from_str(
+            r#"
+[keys]
+copy_mode_left = ["prefix+h", "esc", "enter", "ctrl+b"]
+copy_mode_up = "t"
+copy_mode_down = "t"
+"#,
+        )
+        .unwrap();
+        let keybinds = config.keybinds();
+        let diagnostics = config.collect_diagnostics();
+
+        assert!(keybinds.copy.left.bindings.is_empty());
+        // Fields apply in declaration order (left, down, up, right), so `down` keeps `t`.
+        assert!(keybinds
+            .copy
+            .down
+            .matches_direct_key(&TerminalKey::new(KeyCode::Char('t'), KeyModifiers::empty())));
+        assert!(keybinds.copy.up.bindings.is_empty());
+        assert!(diagnostics
+            .iter()
+            .any(|diag| diag.contains("copy mode keybinding must not include prefix")));
+        assert!(diagnostics
+            .iter()
+            .any(|diag| diag.contains("copy mode keybinding cannot use esc")));
+        assert!(diagnostics.iter().any(|diag| {
+            diag.contains("kept copy mode reserved keys")
+                && diag.contains("disabled keys.copy_mode_left")
+        }));
+        assert!(diagnostics
+            .iter()
+            .any(|diag| diag.contains("kept keys.prefix")
+                && diag.contains("disabled keys.copy_mode_left")));
+        assert!(diagnostics.iter().any(|diag| {
+            diag.contains("kept keys.copy_mode_down") && diag.contains("disabled keys.copy_mode_up")
         }));
     }
 

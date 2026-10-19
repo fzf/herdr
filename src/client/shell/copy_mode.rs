@@ -179,6 +179,21 @@ impl ClientShellState {
             _ => {}
         }
 
+        let copy_keys = &self.config.keybinds.keybinds.copy;
+        let configured_motion = [
+            (&copy_keys.left, (0i16, -1i16)),
+            (&copy_keys.down, (1, 0)),
+            (&copy_keys.up, (-1, 0)),
+            (&copy_keys.right, (0, 1)),
+        ]
+        .into_iter()
+        .find_map(|(bindings, delta)| bindings.matches_direct_key(key).then_some(delta));
+        if let Some((row_delta, col_delta)) = configured_motion {
+            self.move_copy_cursor(row_delta, col_delta, outcome);
+            outcome.repaint = true;
+            return;
+        }
+
         match (key.code, key.modifiers) {
             (KeyCode::Char('b'), modifiers) if modifiers.contains(KeyModifiers::CONTROL) => {
                 self.move_copy_page(-1, false, outcome);
@@ -211,10 +226,6 @@ impl ClientShellState {
             }
             'v' | ' ' => self.begin_copy_selection(false),
             'V' => self.begin_copy_selection(true),
-            'h' => self.move_copy_cursor(0, -1, outcome),
-            'j' => self.move_copy_cursor(1, 0, outcome),
-            'k' => self.move_copy_cursor(-1, 0, outcome),
-            'l' => self.move_copy_cursor(0, 1, outcome),
             'g' => self.move_copy_history(true, outcome),
             'G' => self.move_copy_history(false, outcome),
             '0' => {
