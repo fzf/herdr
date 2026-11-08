@@ -18,6 +18,10 @@ jobs:
         with:
           ref: master
           fetch-depth: 0
+          # GITHUB_TOKEN can never get the `workflows` scope, so the push is
+          # rejected whenever upstream touches .github/workflows. SYNC_TOKEN is a
+          # fine-grained PAT (Contents + Workflows: read/write on this repo).
+          token: ${{ secrets.SYNC_TOKEN || github.token }}
       - name: Merge upstream master
         run: |
           git config user.name "github-actions[bot]"
